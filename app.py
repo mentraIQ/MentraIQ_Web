@@ -271,5 +271,3 @@ elif st.session_state.page == "flashcards":
             st.markdown(f"**Current Streak:** {users[user].get('streak',0)} days")
 
         st.button("Back to Home", on_click=go_home)
-
-
