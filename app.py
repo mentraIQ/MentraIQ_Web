@@ -1,14 +1,24 @@
 import streamlit as st
 from datetime import date
+from openai import OpenAI
 
-# -------------------- PAGE CONFIG --------------------
-st.set_page_config(
-    page_title="MentraIQ",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="MentraIQ", layout="wide", page_icon="🧠")
 
-# -------------------- GLOBAL CSS --------------------
+# ---------------- OPENAI CLIENT ----------------
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# ---------------- SESSION STATE ----------------
+if "users" not in st.session_state:
+    st.session_state.users = {}
+if "user" not in st.session_state:
+    st.session_state.user = None
+if "page" not in st.session_state:
+    st.session_state.page = "Tutor"
+if "flip" not in st.session_state:
+    st.session_state.flip = {}
+
+# ---------------- CSS ----------------
 st.markdown("""
 <style>
 html, body, [class*="css"] {
@@ -16,8 +26,7 @@ html, body, [class*="css"] {
     color: #e5e7eb;
     font-family: 'Inter', sans-serif;
 }
-
-/* Remove yellow Streamlit alerts */
+/* Remove yellow alerts */
 div[data-testid="stAlert"] {
     background-color: #111827 !important;
     color: #f9fafb !important;
@@ -27,14 +36,12 @@ div[data-testid="stAlert"] {
 div[data-testid="stAlert"] > div:first-child {
     display: none !important;
 }
-
 /* Inputs */
 input, textarea {
     background-color: #111827 !important;
     color: white !important;
     border-radius: 10px !important;
 }
-
 /* Buttons */
 button {
     background-color: #1e293b !important;
@@ -43,7 +50,6 @@ button {
     padding: 10px 18px !important;
     font-weight: 600;
 }
-
 /* Flashcard */
 .flashcard {
     background-color: #111827;
@@ -60,23 +66,12 @@ button {
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- SESSION STATE --------------------
-if "users" not in st.session_state:
-    st.session_state.users = {}
-
-if "user" not in st.session_state:
-    st.session_state.user = None
-
-if "page" not in st.session_state:
-    st.session_state.page = "Tutor"
-
-# -------------------- SIDEBAR --------------------
+# ---------------- NAVIGATION ----------------
 st.sidebar.title("MentraIQ")
-
 pages = ["Tutor", "Flashcards", "Account"]
 st.session_state.page = st.sidebar.radio("Navigate", pages)
 
-# -------------------- USER AUTH --------------------
+# ---------------- USER AUTH ----------------
 def login(username):
     if username not in st.session_state.users:
         st.session_state.users[username] = {
@@ -86,10 +81,9 @@ def login(username):
         }
     st.session_state.user = username
 
-# -------------------- TUTOR (NO LOGIN REQUIRED) --------------------
+# ---------------- TUTOR ----------------
 if st.session_state.page == "Tutor":
     st.title("AI Tutor ✨")
-
     question = st.text_area(
         "Ask anything",
         placeholder="Explain photosynthesis, solve x² + 4x = 0, summarize Hamlet..."
@@ -97,34 +91,48 @@ if st.session_state.page == "Tutor":
 
     if st.button("Get Answer"):
         if question.strip():
-            st.success("Answer generated ✨ (AI placeholder)")
-            st.write(
-                "This is where your AI response goes. "
-                "When you're ready, we connect it to the API."
-            )
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-5-mini",
+                    messages=[
+                        {"role":"system","content":"Explain step by step clearly like a tutor."},
+                        {"role":"user","content": question}
+                    ],
+                    max_tokens=300
+                )
+                ans = response.choices[0].message.content
+                st.markdown(f'<div class="flashcard">{ans}</div>', unsafe_allow_html=True)
+
+                if st.session_state.user:
+                    category = st.text_input("Category (optional)", value="General")
+                    if st.button("Save as Flashcard"):
+                        st.session_state.users[st.session_state.user]["flashcards"].append({
+                            "front": question,
+                            "back": ans,
+                            "category": category or "General"
+                        })
+                        st.success("Saved to flashcards!")
+            except Exception as e:
+                st.error(f"AI error: {e}")
         else:
             st.warning("Type a question first")
 
-# -------------------- FLASHCARDS --------------------
+# ---------------- FLASHCARDS ----------------
 elif st.session_state.page == "Flashcards":
-    st.title("Flashcards 📚")
-
+    st.title("My Flashcards 📚")
     if not st.session_state.user:
-        st.info("Sign in to save and review flashcards")
+        st.info("Sign in to see flashcards")
     else:
         user = st.session_state.user
         cards = st.session_state.users[user]["flashcards"]
 
         st.subheader("Create Flashcard")
-
         col1, col2 = st.columns(2)
         with col1:
             front = st.text_input("Front")
         with col2:
             back = st.text_input("Back")
-
         category = st.text_input("Category", placeholder="English Final")
-
         if st.button("Add Flashcard"):
             if front and back:
                 cards.append({
@@ -138,7 +146,6 @@ elif st.session_state.page == "Flashcards":
 
         st.divider()
         st.subheader("Study")
-
         if cards:
             idx = st.number_input(
                 "Card number",
@@ -146,22 +153,15 @@ elif st.session_state.page == "Flashcards":
                 max_value=len(cards),
                 value=1
             ) - 1
-
             show_back = st.toggle("Flip card")
-
             content = cards[idx]["back"] if show_back else cards[idx]["front"]
-
-            st.markdown(
-                f'<div class="flashcard">{content}</div>',
-                unsafe_allow_html=True
-            )
+            st.markdown(f'<div class="flashcard">{content}</div>', unsafe_allow_html=True)
         else:
             st.info("No flashcards yet")
 
-# -------------------- ACCOUNT --------------------
+# ---------------- ACCOUNT ----------------
 elif st.session_state.page == "Account":
     st.title("Account 👤")
-
     if not st.session_state.user:
         username = st.text_input("Username")
         if st.button("Sign in"):
@@ -171,11 +171,10 @@ elif st.session_state.page == "Account":
     else:
         user = st.session_state.user
         data = st.session_state.users[user]
-
         st.write(f"**Username:** {user}")
         st.write(f"🔥 **Streak:** {data['streak']} days")
         st.write(f"📚 **Flashcards:** {len(data['flashcards'])}")
-
         if st.button("Log out"):
             st.session_state.user = None
+
 
