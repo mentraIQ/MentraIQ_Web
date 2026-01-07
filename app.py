@@ -1,9 +1,20 @@
 import streamlit as st
 from datetime import date
 from openai import OpenAI
+from openai.error import RateLimitError, OpenAIError
+
+# ---------------- APP TITLE ----------------
+st.markdown(
+    """
+    <h1 style='text-align:center; color:#60a5fa; font-size:48px; margin-bottom:20px;'>
+        MentraIQ V6 🧠
+    </h1>
+    """,
+    unsafe_allow_html=True
+)
 
 # ---------------- CONFIG ----------------
-st.set_page_config(page_title="MentraIQ", layout="wide", page_icon="🧠")
+st.set_page_config(page_title="MentraIQ V6", layout="wide", page_icon="🧠")
 
 # ---------------- OPENAI CLIENT ----------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -91,29 +102,34 @@ if st.session_state.page == "Tutor":
 
     if st.button("Get Answer"):
         if question.strip():
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-5-mini",
-                    messages=[
-                        {"role":"system","content":"Explain step by step clearly like a tutor."},
-                        {"role":"user","content": question}
-                    ],
-                    max_tokens=300
-                )
-                ans = response.choices[0].message.content
-                st.markdown(f'<div class="flashcard">{ans}</div>', unsafe_allow_html=True)
+            with st.spinner("Thinking... 🤖"):
+                try:
+                    response = client.chat.completions.create(
+                        model="gpt-5-mini",
+                        messages=[
+                            {"role":"system","content":"Explain step by step clearly like a tutor."},
+                            {"role":"user","content": question}
+                        ],
+                        max_tokens=500
+                    )
+                    ans = response.choices[0].message.content
+                    st.markdown(f'<div class="flashcard">{ans}</div>', unsafe_allow_html=True)
 
-                if st.session_state.user:
-                    category = st.text_input("Category (optional)", value="General")
-                    if st.button("Save as Flashcard"):
-                        st.session_state.users[st.session_state.user]["flashcards"].append({
-                            "front": question,
-                            "back": ans,
-                            "category": category or "General"
-                        })
-                        st.success("Saved to flashcards!")
-            except Exception as e:
-                st.error(f"AI error: {e}")
+                    # Save to flashcards if logged in
+                    if st.session_state.user:
+                        category = st.text_input("Category (optional)", value="General")
+                        if st.button("Save as Flashcard"):
+                            st.session_state.users[st.session_state.user]["flashcards"].append({
+                                "front": question,
+                                "back": ans,
+                                "category": category or "General"
+                            })
+                            st.success("Saved to flashcards!")
+
+                except RateLimitError:
+                    st.error("You’ve run out of tokens! Please try again later.")
+                except OpenAIError as e:
+                    st.error(f"AI error: {e}")
         else:
             st.warning("Type a question first")
 
@@ -176,5 +192,6 @@ elif st.session_state.page == "Account":
         st.write(f"📚 **Flashcards:** {len(data['flashcards'])}")
         if st.button("Log out"):
             st.session_state.user = None
+
 
 
