@@ -1,11 +1,11 @@
 import streamlit as st
-from openai import OpenAI
 from datetime import datetime, timedelta
+from openai import OpenAI
 
 # --------------------
-# CONFIG
+# PAGE CONFIG
 # --------------------
-st.set_page_config(page_title="MentraIQ V10", layout="wide")
+st.set_page_config(page_title="MentraIQ V12", layout="wide")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --------------------
@@ -16,14 +16,6 @@ defaults = {
     "user": None,
     "admin": False,
     "users": {},
-    "bg": "#0b0f19",
-    "card": "#111827",
-    "text": "#e5e7eb",
-    "accent": "#3b82f6",
-    "tutor_title": "AI Tutor",
-    "tutor_desc": "Ask anything. Get clear, step‑by‑step help.",
-    "btn_answer": "Get Answer",
-    "btn_save": "Save to Study Mode",
     "card_idx": 0
 }
 for k, v in defaults.items():
@@ -32,93 +24,90 @@ for k, v in defaults.items():
 # --------------------
 # CSS STYLING
 # --------------------
-st.markdown(f"""
+st.markdown("""
 <style>
-html, body, [data-testid="stApp"] {{
-    background-color: {st.session_state.bg};
-    color: {st.session_state.text};
-}}
-.main-card {{
-    background: {st.session_state.card};
-    max-width: 720px;
-    margin: 60px auto;
-    padding: 40px;
-    border-radius: 22px;
-    box-shadow: 0 30px 60px rgba(0,0,0,.5);
-}}
-button {{
-    background-color: {st.session_state.accent} !important;
-    color: white !important;
-    border-radius: 12px !important;
-}}
-.nav-btn {{
-    background: none !important;
-    color: {st.session_state.text} !important;
+/* Background and text */
+[data-testid="stAppViewContainer"] {background-color: #0b0f19; color: #e5e7eb;}
+/* Nav buttons horizontal */
+.nav-btn {
+    margin-right: 20px;
     font-weight: 600;
-}}
-.admin-btn {{
+    color: #e5e7eb;
+    background: none;
+    border: none;
+    font-size: 18px;
+}
+/* Admin button top-right */
+.admin-btn {
     position: fixed;
-    top: 20px;
-    right: 120px; /* near GitHub link */
+    top: 15px;
+    right: 20px;
     font-size: 16px;
+    font-weight: 600;
     cursor: pointer;
-}}
-.flash {{
-    background: {st.session_state.card};
+    color: #e5e7eb;
+    background: none;
+    border: none;
+}
+/* Flashcard styling */
+.flash {
+    background: #111827;
     padding: 40px;
     border-radius: 20px;
     text-align: center;
     font-size: 22px;
     perspective: 1000px;
-}}
-.flash-inner {{
+    margin-bottom: 20px;
+}
+.flash-inner {
     transition: transform 0.6s;
     transform-style: preserve-3d;
     padding: 30px;
     border-radius: 20px;
-}}
+    color: #e5e7eb;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # --------------------
 # NAVIGATION FUNCTIONS
 # --------------------
-def go_tutor():
-    st.session_state.page = "Tutor"
-def go_study():
-    st.session_state.page = "Study"
-def go_account():
-    st.session_state.page = "Account"
-def go_admin():
-    st.session_state.page = "Admin"
+def go_tutor(): st.session_state.page = "Tutor"
+def go_study(): st.session_state.page = "Study"
+def go_account(): st.session_state.page = "Account"
+def go_admin(): st.session_state.page = "Admin"
+
+# --------------------
+# TOP TITLE
+# --------------------
+st.markdown("# MentraIQ", unsafe_allow_html=True)
 
 # --------------------
 # NAV BAR
 # --------------------
 c1, c2, c3 = st.columns([1,1,1])
-with c1:
-    st.button("Tutor", key="nav_tutor", on_click=go_tutor)
-with c2:
-    st.button("Study Mode", key="nav_study", on_click=go_study)
-with c3:
-    st.button("Account", key="nav_account", on_click=go_account)
+with c1: st.button("Tutor", on_click=go_tutor, key="nav_tutor", help="Go to Tutor")
+with c2: st.button("Study Mode", on_click=go_study, key="nav_study", help="Go to Study Mode")
+with c3: st.button("Account", on_click=go_account, key="nav_account", help="Go to Account")
 
-# Admin button small and subtle
-st.button("Admin", key="admin_btn", on_click=go_admin, help="Admin mode")
+# --------------------
+# ADMIN BUTTON TOP-RIGHT
+# --------------------
+if st.button("Admin", key="admin_btn", on_click=go_admin):
+    pass
 
 # --------------------
 # TUTOR PAGE
 # --------------------
 if st.session_state.page == "Tutor":
-    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-    st.markdown(f"## {st.session_state.tutor_title}")
-    st.markdown(st.session_state.tutor_desc)
+    st.markdown("## AI Tutor")
+    st.markdown("Ask anything. Get step-by-step help.")
 
-    question = st.text_area("", placeholder="Type your question here…", height=150)
+    question = st.text_area("Your question…", height=150)
 
-    if st.button(st.session_state.btn_answer):
+    if st.button("Get Answer"):
         if not question.strip():
-            st.warning("Ask something first.")
+            st.warning("Type a question first!")
         else:
             try:
                 response = client.chat.completions.create(
@@ -130,7 +119,7 @@ if st.session_state.page == "Tutor":
                 st.write(answer)
 
                 if st.session_state.user:
-                    if st.button(st.session_state.btn_save):
+                    if st.button("Save to Study Mode"):
                         st.session_state.users[st.session_state.user].setdefault("cards", [])
                         st.session_state.users[st.session_state.user]["cards"].append({
                             "front": question,
@@ -139,9 +128,9 @@ if st.session_state.page == "Tutor":
                         st.success("Saved to Study Mode!")
                 else:
                     st.info("Sign in to save to Study Mode.")
+
             except:
                 st.error("Tutor is busy. Try again later.")
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------
 # STUDY MODE
@@ -150,29 +139,27 @@ if st.session_state.page == "Study":
     if not st.session_state.user:
         st.warning("Sign in for Study Mode.")
     else:
-        cards = st.session_state.users[st.session_state.user].get("cards", [])
+        user_cards = st.session_state.users[st.session_state.user].get("cards", [])
         st.markdown("### Create a new study card")
         with st.form("new_card"):
             front = st.text_input("Front (Question)")
             back = st.text_input("Back (Answer)")
-            submitted = st.form_submit_button("Add Card")
-            if submitted:
+            if st.form_submit_button("Add Card"):
                 if front and back:
-                    cards.append({"front": front, "back": back})
-                    st.session_state.users[st.session_state.user]["cards"] = cards
+                    user_cards.append({"front": front, "back": back})
+                    st.session_state.users[st.session_state.user]["cards"] = user_cards
                     st.success("Card added!")
                 else:
                     st.error("Both front and back are required.")
 
-        if cards:
+        if user_cards:
             idx = st.session_state.card_idx
-            card = cards[idx]
-            flipped = st.checkbox("Flip card")
-
+            card = user_cards[idx]
+            flip = st.checkbox("Flip card")
             st.markdown(f"""
             <div class='flash'>
-                <div class='flash-inner' style="transform: rotateY({'180deg' if flipped else '0deg'})">
-                    {card['back'] if flipped else card['front']}
+                <div class='flash-inner' style="transform: rotateY({'180deg' if flip else '0deg'})">
+                    {card['back'] if flip else card['front']}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -180,18 +167,17 @@ if st.session_state.page == "Study":
             c1, c2 = st.columns(2)
             with c1:
                 if st.button("⬅️ Prev"):
-                    st.session_state.card_idx = (idx - 1) % len(cards)
+                    st.session_state.card_idx = (idx - 1) % len(user_cards)
             with c2:
                 if st.button("Next ➡️"):
-                    st.session_state.card_idx = (idx + 1) % len(cards)
+                    st.session_state.card_idx = (idx + 1) % len(user_cards)
 
-            # STREAK / PROGRESS TRACKING
+            # STREAK TRACKING
             user = st.session_state.user
             st.session_state.users[user].setdefault("streak", 0)
             st.session_state.users[user].setdefault("last_login", "")
             today = datetime.today().date()
             last = st.session_state.users[user]["last_login"]
-
             if str(today) != last:
                 if last:
                     yesterday = today - timedelta(days=1)
@@ -202,9 +188,8 @@ if st.session_state.page == "Study":
                 else:
                     st.session_state.users[user]["streak"] = 1
                 st.session_state.users[user]["last_login"] = str(today)
-
             st.markdown(f"**🔥 Current streak:** {st.session_state.users[user]['streak']} day(s)")
-            st.markdown(f"**📚 Cards saved:** {len(cards)}")
+            st.markdown(f"**📚 Cards saved:** {len(user_cards)}")
 
 # --------------------
 # ACCOUNT PAGE
@@ -240,16 +225,9 @@ if st.session_state.page == "Admin":
                 st.error("Wrong password.")
     else:
         st.subheader("Admin Panel (Live Edit)")
-        st.session_state.bg = st.color_picker("Background", st.session_state.bg)
-        st.session_state.card = st.color_picker("Card", st.session_state.card)
-        st.session_state.accent = st.color_picker("Accent", st.session_state.accent)
-
-        st.session_state.tutor_title = st.text_input("Tutor Title", st.session_state.tutor_title)
-        st.session_state.tutor_desc = st.text_input("Tutor Description", st.session_state.tutor_desc)
-        st.session_state.btn_answer = st.text_input("Answer Button Text", st.session_state.btn_answer)
-        st.session_state.btn_save = st.text_input("Save Button Text", st.session_state.btn_save)
-
-        if st.button("Exit Admin"):
-            st.session_state.admin = False
-            st.session_state.page = "Tutor"
-
+        st.color_picker("Background", "#0b0f19")
+        st.color_picker("Card", "#111827")
+        st.color_picker("Accent", "#3b82f6")
+        st.text_input("Tutor Title", "AI Tutor")
+        st.text_input("Tutor Description", "Ask anything. Get step‑by‑step help.")
+        st.button("Exit Admin", on_click=lambda: st.session_state.update({"admin": False, "page":"Tutor"}))
