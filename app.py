@@ -3,7 +3,7 @@ from datetime import date
 from openai import OpenAI
 
 # ---------------- CONFIG ----------------
-st.set_page_config(page_title="MentraIQ V7", layout="wide", page_icon="🧠")
+st.set_page_config(page_title="MentraIQ V9", layout="wide", page_icon="🧠")
 
 # ---------------- OPENAI CLIENT ----------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -14,7 +14,7 @@ if "users" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = None
 if "page" not in st.session_state:
-    st.session_state.page = "Home"
+    st.session_state.page = "Tutor"
 if "admin_mode" not in st.session_state:
     st.session_state.admin_mode = False
 if "theme" not in st.session_state:
@@ -61,9 +61,19 @@ button {{
     cursor: pointer;
     transition: transform 0.6s;
     transform-style: preserve-3d;
+    margin-bottom: 15px;
 }}
-.flashcard.flipped {{
-    transform: rotateY(180deg);
+.navbar {{
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}}
+.nav-button {{
+    background-color: {st.session_state.theme['button']};
+    color: white;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-weight: 600;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -91,30 +101,31 @@ def login(username, password):
     else:
         st.error("Username not found!")
 
-# ---------------- NAVIGATION ----------------
-if st.session_state.page == "Home":
-    st.markdown("<h1 style='text-align:center; color:#60a5fa;'>MentraIQ V7 🧠</h1>", unsafe_allow_html=True)
+# ---------------- NAVBAR ----------------
+def navbar():
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        if st.button("Tutor"):
+        if st.button("Tutor", key="nav_tutor"):
             st.session_state.page = "Tutor"
     with col2:
-        if st.button("Flashcards"):
-            st.session_state.page = "Flashcards"
+        if st.button("Study Mode", key="nav_study"):
+            st.session_state.page = "StudyMode"
     with col3:
-        if st.button("Account"):
+        if st.button("Account", key="nav_account"):
             st.session_state.page = "Account"
     with col4:
-        if st.button("Admin"):
-            pwd = st.text_input("Admin Password", type="password")
-            if pwd == "mentraqueen":  # admin password
+        if st.button("Admin", key="nav_admin"):
+            pwd = st.text_input("Admin Password", type="password", key="admin_pwd")
+            if pwd == "mentraqueen":
                 st.session_state.admin_mode = True
                 st.session_state.page = "Admin"
             elif pwd:
                 st.error("Incorrect admin password!")
 
+navbar()  # always show navbar
+
 # ---------------- TUTOR ----------------
-elif st.session_state.page == "Tutor":
+if st.session_state.page == "Tutor":
     st.title("AI Tutor ✨")
     question = st.text_area("Ask anything", placeholder="Explain photosynthesis, solve x² + 4x = 0...")
     if st.button("Get Answer"):
@@ -131,16 +142,16 @@ elif st.session_state.page == "Tutor":
                     )
                     ans = response.choices[0].message.content
                     st.markdown(f'<div class="flashcard" id="tutor_card">{ans}</div>', unsafe_allow_html=True)
-                    # Save flashcard
+                    # Save to Study Mode
                     if st.session_state.user:
                         cat = st.text_input("Category (optional)", value="General")
-                        if st.button("Save Flashcard"):
+                        if st.button("Save to Study Mode"):
                             st.session_state.users[st.session_state.user]["flashcards"].append({
                                 "front": question,
                                 "back": ans,
                                 "category": cat or "General"
                             })
-                            st.success("Saved!")
+                            st.success("Saved to Study Mode!")
                 except Exception as e:
                     if "rate limit" in str(e).lower() or "quota" in str(e).lower():
                         st.error("Out of tokens, try later.")
@@ -149,11 +160,11 @@ elif st.session_state.page == "Tutor":
         else:
             st.warning("Type a question first")
 
-# ---------------- FLASHCARDS ----------------
-elif st.session_state.page == "Flashcards":
-    st.title("My Flashcards 📚")
+# ---------------- STUDY MODE ----------------
+elif st.session_state.page == "StudyMode":
+    st.title("Study Mode 📚")
     if not st.session_state.user:
-        st.info("Sign in to see flashcards")
+        st.info("Sign in for Study Mode")
     else:
         user = st.session_state.user
         cards = st.session_state.users[user]["flashcards"]
@@ -174,7 +185,11 @@ elif st.session_state.page == "Flashcards":
 
         st.subheader("Study")
         if cards:
+            categories = ["All"] + list({c["category"] for c in cards})
+            selected_cat = st.selectbox("Filter by Category", categories)
             for idx, card in enumerate(cards):
+                if selected_cat != "All" and card["category"] != selected_cat:
+                    continue
                 st.markdown(f'<div class="flashcard" id="card_{idx}">{card["front"]}</div>', unsafe_allow_html=True)
                 st.markdown(f"""
                 <script>
@@ -190,6 +205,9 @@ elif st.session_state.page == "Flashcards":
                 """, unsafe_allow_html=True)
         else:
             st.info("No flashcards yet")
+
+    if st.button("Back to Tutor"):
+        st.session_state.page = "Tutor"
 
 # ---------------- ACCOUNT ----------------
 elif st.session_state.page == "Account":
@@ -212,18 +230,26 @@ elif st.session_state.page == "Account":
         data = st.session_state.users[user]
         st.write(f"**Username:** {user}")
         st.write(f"🔥 **Streak:** {data['streak']} days")
-        st.write(f"📚 **Flashcards:** {len(data['flashcards'])}")
+        st.write(f"📚 **Flashcards in Study Mode:** {len(data['flashcards'])}")
         if st.button("Log out"):
             st.session_state.user = None
+    if st.button("Back to Tutor"):
+        st.session_state.page = "Tutor"
 
 # ---------------- ADMIN ----------------
 elif st.session_state.page == "Admin":
     st.title("Admin Panel 🔧")
+    st.info("Edit site theme, categories, and labels here.")
     st.subheader("Theme Customization")
     st.session_state.theme["background"] = st.color_picker("Background", st.session_state.theme["background"])
     st.session_state.theme["text"] = st.color_picker("Text", st.session_state.theme["text"])
     st.session_state.theme["button"] = st.color_picker("Buttons", st.session_state.theme["button"])
     st.session_state.theme["flashcard_bg"] = st.color_picker("Flashcards BG", st.session_state.theme["flashcard_bg"])
     st.session_state.theme["flashcard_text"] = st.color_picker("Flashcards Text", st.session_state.theme["flashcard_text"])
-    st.info("Changes apply immediately!")
+
+    st.subheader("Edit Categories & Labels")
+    st.write("⚡ Placeholder: Add full edit functionality here.")
+
+    if st.button("Back to Tutor"):
+        st.session_state.page = "Tutor"
 
