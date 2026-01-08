@@ -1,236 +1,186 @@
 import streamlit as st
 from openai import OpenAI
-import hashlib
-import datetime
 
-# ======================
+# --------------------
 # CONFIG
-# ======================
-st.set_page_config(page_title="MentraIQ V11", layout="wide")
+# --------------------
+st.set_page_config(page_title="MentraIQ", layout="wide")
 
-# ======================
-# STYLING
-# ======================
-st.markdown("""
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# --------------------
+# SESSION STATE INIT
+# --------------------
+defaults = {
+    "page": "Tutor",
+    "user": None,
+    "admin": False,
+    "users": {},
+    "bg": "#0b0f19",
+    "card": "#111827",
+    "text": "#e5e7eb",
+    "accent": "#3b82f6",
+    "tutor_title": "AI Tutor",
+    "tutor_desc": "Ask anything. Get clear, step‑by‑step help.",
+    "btn_answer": "Get Answer",
+    "btn_save": "Save to Study Mode",
+}
+for k, v in defaults.items():
+    st.session_state.setdefault(k, v)
+
+# --------------------
+# STYLES
+# --------------------
+st.markdown(f"""
 <style>
-/* Hide Streamlit UI */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-
-/* Background & text */
-body { background-color: #0f1117; color: white; }
-
-/* Buttons */
-.stButton > button {
-    background-color: #1f2937;
-    color: white;
-    border-radius: 12px;
-    padding: 0.7em 1.5em;
-    font-size: 16px;
-    border: none;
-}
-
-/* Tutor card */
-.tutor-card {
-    background-color: #111827;
-    padding: 40px;
-    border-radius: 20px;
-    max-width: 700px;
+html, body, [data-testid="stApp"] {{
+    background-color: {st.session_state.bg};
+    color: {st.session_state.text};
+}}
+.main-card {{
+    background: {st.session_state.card};
+    max-width: 720px;
     margin: 60px auto;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-}
-
-/* Tutor input */
-textarea {
-    border-radius: 14px !important;
-    background-color: #1f2937 !important;
+    padding: 40px;
+    border-radius: 22px;
+    box-shadow: 0 30px 60px rgba(0,0,0,.5);
+}}
+button {{
+    background-color: {st.session_state.accent} !important;
     color: white !important;
-    font-size: 18px !important;
-}
-
-/* Admin icon */
-.admin-btn button {
-    background: transparent !important;
-    font-size: 22px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-}
-
-/* Flashcards */
-.flashcard {
-    background-color: #1f2937;
-    padding: 60px;
-    border-radius: 16px;
-    text-align: center;
-    font-size: 24px;
+    border-radius: 12px !important;
+}}
+.nav-btn {{
+    background: none !important;
+    color: {st.session_state.text} !important;
+    font-weight: 600;
+}}
+.admin {{
+    position: fixed;
+    top: 14px;
+    right: 20px;
+    font-size: 20px;
     cursor: pointer;
-    margin: 20px auto;
-    max-width: 700px;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-}
+}}
+.flash {{
+    background: {st.session_state.card};
+    padding: 35px;
+    border-radius: 20px;
+    text-align: center;
+    font-size: 22px;
+}}
 </style>
 """, unsafe_allow_html=True)
 
-# ======================
-# VERSION
-# ======================
-st.markdown("## MentraIQ V11")
+# --------------------
+# NAV BAR
+# --------------------
+c1, c2, c3 = st.columns([1,1,1])
+with c1:
+    if st.button("Tutor", key="nav_tutor"):
+        st.session_state.page = "Tutor"
+with c2:
+    if st.button("Study Mode", key="nav_study"):
+        st.session_state.page = "Study"
+with c3:
+    if st.button("Account", key="nav_account"):
+        st.session_state.page = "Account"
 
-# ======================
-# OPENAI CLIENT
-# ======================
-client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", ""))
+st.markdown(
+    "<div class='admin' onclick=\"document.getElementById('admin').click()\">⚙️</div>",
+    unsafe_allow_html=True
+)
+st.button("admin", key="admin", on_click=lambda: setattr(st.session_state, "page", "Admin"))
 
-# ======================
-# STATE
-# ======================
-if "page" not in st.session_state:
-    st.session_state.page = "Tutor"
-if "users" not in st.session_state:
-    st.session_state.users = {}
-if "user" not in st.session_state:
-    st.session_state.user = None
-if "admin" not in st.session_state:
-    st.session_state.admin = False
-if "card_idx" not in st.session_state:
-    st.session_state.card_idx = 0
-if "flipped" not in st.session_state:
-    st.session_state.flipped = False
-if "bg_color" not in st.session_state:
-    st.session_state.bg_color = "#0f1117"
-if "button_color" not in st.session_state:
-    st.session_state.button_color = "#1f2937"
-if "tutor_title" not in st.session_state:
-    st.session_state.tutor_title = "AI Tutor"
-
-# ======================
-# HELPERS
-# ======================
-def hash_pw(pw):
-    return hashlib.sha256(pw.encode()).hexdigest()
-
-# ======================
-# TOP NAV
-# ======================
-nav_left, nav_spacer, nav_right = st.columns([6, 3, 1])
-
-with nav_left:
-    colA, colB, colC = st.columns(3)
-    with colA:
-        if st.button("Tutor"):
-            st.session_state.page = "Tutor"
-    with colB:
-        if st.button("Study Mode"):
-            st.session_state.page = "Study Mode"
-    with colC:
-        if st.button("Account"):
-            st.session_state.page = "Account"
-
-with nav_right:
-    st.markdown("<div class='admin-btn'>", unsafe_allow_html=True)
-    if st.button("🛠️"):
-        st.session_state.page = "Admin"
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ======================
+# --------------------
 # TUTOR PAGE
-# ======================
+# --------------------
 if st.session_state.page == "Tutor":
-    st.markdown(f"<div class='tutor-card'>", unsafe_allow_html=True)
+    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
     st.markdown(f"## {st.session_state.tutor_title}")
-    st.markdown("Ask a question and get a clear explanation.")
+    st.markdown(st.session_state.tutor_desc)
 
-    question = st.text_area(
-        "",
-        placeholder="Type your question here...",
-        height=140
-    )
+    q = st.text_area("", placeholder="Type your question here…", height=150)
 
-    if st.button("Get Answer"):
-        try:
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": question}]
-            )
-            answer = response.choices[0].message.content
-            st.markdown("### Answer")
-            st.write(answer)
+    if st.button(st.session_state.btn_answer):
+        if not q.strip():
+            st.warning("Ask something first.")
+        else:
+            try:
+                r = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role":"user","content":q}]
+                )
+                a = r.choices[0].message.content
+                st.markdown("### Answer")
+                st.write(a)
 
-            if st.session_state.user:
-                if st.button("Save to Study Mode"):
-                    st.session_state.users[st.session_state.user]["cards"].append({
-                        "front": question,
-                        "back": answer,
-                        "category": "General"
-                    })
-        except Exception:
-            st.error("Tutor is busy. Try again later.")
+                if st.session_state.user:
+                    if st.button(st.session_state.btn_save):
+                        st.session_state.users[st.session_state.user]["cards"].append({
+                            "front": q,
+                            "back": a
+                        })
+                        st.success("Saved!")
+                else:
+                    st.info("Sign in to save to Study Mode.")
+            except:
+                st.error("Tutor is busy. Try again later.")
+
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ======================
+# --------------------
 # STUDY MODE
-# ======================
-if st.session_state.page == "Study Mode":
+# --------------------
+if st.session_state.page == "Study":
     if not st.session_state.user:
-        st.warning("Sign in for Study Mode")
+        st.warning("Sign in for Study Mode.")
     else:
-        st.subheader("Study Mode")
-        user = st.session_state.user
-        cards = st.session_state.users[user]["cards"]
-
+        cards = st.session_state.users[st.session_state.user]["cards"]
         if not cards:
             st.info("No cards yet.")
         else:
-            idx = st.session_state.card_idx
-            flipped = st.session_state.flipped
+            idx = st.session_state.setdefault("card_idx", 0)
+            flip = st.checkbox("Flip card")
+
             card = cards[idx]
-            content = card["back"] if flipped else card["front"]
+            st.markdown("<div class='flash'>", unsafe_allow_html=True)
+            st.write(card["back"] if flip else card["front"])
+            st.markdown("</div>", unsafe_allow_html=True)
 
-            if st.markdown(f"<div class='flashcard'>{content}</div>", unsafe_allow_html=True):
-                st.session_state.flipped = not flipped
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("⬅️ Prev"):
+                    st.session_state.card_idx = (idx - 1) % len(cards)
+            with c2:
+                if st.button("Next ➡️"):
+                    st.session_state.card_idx = (idx + 1) % len(cards)
 
-            colA, colB, colC = st.columns([1,3,1])
-            with colA:
-                if st.button("Previous") and idx > 0:
-                    st.session_state.card_idx -= 1
-                    st.session_state.flipped = False
-            with colC:
-                if st.button("Next") and idx < len(cards)-1:
-                    st.session_state.card_idx += 1
-                    st.session_state.flipped = False
-
-# ======================
+# --------------------
 # ACCOUNT
-# ======================
+# --------------------
 if st.session_state.page == "Account":
-    st.subheader("Account")
-    if st.session_state.user:
+    if not st.session_state.user:
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
+
+        if st.button("Sign In / Sign Up"):
+            if u not in st.session_state.users:
+                st.session_state.users[u] = {"password": p, "cards": []}
+            if st.session_state.users[u]["password"] == p:
+                st.session_state.user = u
+                st.success("Logged in!")
+            else:
+                st.error("Wrong password.")
+    else:
         st.success(f"Logged in as {st.session_state.user}")
         if st.button("Log out"):
             st.session_state.user = None
             st.session_state.page = "Tutor"
-    else:
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
 
-        if st.button("Sign In / Register"):
-            if username not in st.session_state.users:
-                st.session_state.users[username] = {
-                    "pw": hash_pw(password),
-                    "cards": [],
-                    "streak": 1,
-                    "last": str(datetime.date.today())
-                }
-            if st.session_state.users[username]["pw"] == hash_pw(password):
-                st.session_state.user = username
-                st.session_state.page = "Tutor"
-            else:
-                st.error("Wrong password")
-
-# ======================
+# --------------------
 # ADMIN
-# ======================
+# --------------------
 if st.session_state.page == "Admin":
     if not st.session_state.admin:
         pw = st.text_input("Admin password", type="password")
@@ -240,16 +190,17 @@ if st.session_state.page == "Admin":
             else:
                 st.error("Nope.")
     else:
-        st.subheader("Admin Panel")
-        st.info("Change theme, card title, and buttons in real time")
+        st.subheader("Admin Panel (Live Edit)")
+        st.session_state.bg = st.color_picker("Background", st.session_state.bg)
+        st.session_state.card = st.color_picker("Card", st.session_state.card)
+        st.session_state.accent = st.color_picker("Accent", st.session_state.accent)
 
-        # Theme controls
-        st.session_state.bg_color = st.color_picker("Background color", st.session_state.bg_color)
-        st.session_state.button_color = st.color_picker("Button color", st.session_state.button_color)
-
-        # Tutor title
-        st.session_state.tutor_title = st.text_input("Tutor card title", st.session_state.tutor_title)
+        st.session_state.tutor_title = st.text_input("Tutor Title", st.session_state.tutor_title)
+        st.session_state.tutor_desc = st.text_input("Tutor Description", st.session_state.tutor_desc)
+        st.session_state.btn_answer = st.text_input("Answer Button Text", st.session_state.btn_answer)
+        st.session_state.btn_save = st.text_input("Save Button Text", st.session_state.btn_save)
 
         if st.button("Exit Admin"):
             st.session_state.admin = False
             st.session_state.page = "Tutor"
+
