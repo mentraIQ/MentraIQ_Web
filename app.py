@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import date
-from openai import OpenAI
-import openai.error as openai_error  # Correct exception import
+from openai import OpenAI  # Latest SDK, no error module
 
 # ---------------- APP TITLE ----------------
 st.markdown(
@@ -13,7 +12,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ---------------- CONFIG ----------------
 st.set_page_config(page_title="MentraIQ V6", layout="wide", page_icon="🧠")
 
 # ---------------- OPENAI CLIENT ----------------
@@ -39,23 +37,11 @@ html, body, [class*="css"] {
     color: #e5e7eb;
     font-family: 'Inter', sans-serif;
 }
-/* Remove yellow alerts */
-div[data-testid="stAlert"] {
-    background-color: #111827 !important;
-    color: #f9fafb !important;
-    border-radius: 14px;
-    border: none;
-}
-div[data-testid="stAlert"] > div:first-child {
-    display: none !important;
-}
-/* Inputs */
 input, textarea {
     background-color: #111827 !important;
     color: white !important;
     border-radius: 10px !important;
 }
-/* Buttons */
 button {
     background-color: #1e293b !important;
     color: white !important;
@@ -63,7 +49,6 @@ button {
     padding: 10px 18px !important;
     font-weight: 600;
 }
-/* Flashcard */
 .flashcard {
     background-color: #111827;
     border-radius: 20px;
@@ -82,7 +67,7 @@ button {
 # ---------------- NAVIGATION ----------------
 st.sidebar.title("MentraIQ")
 pages = ["Tutor", "Flashcards", "Account"]
-# Add the 3-dot menu for admin mode
+# 3-dot menu for admin mode
 if st.sidebar.button("⋮ Admin Mode"):
     st.session_state.admin_mode = not st.session_state.admin_mode
 
@@ -131,10 +116,11 @@ if st.session_state.page == "Tutor":
                             })
                             st.success("Saved to flashcards!")
 
-                except openai_error.RateLimitError:
-                    st.error("You’ve run out of tokens! Please try again later.")
-                except openai_error.OpenAIError as e:
-                    st.error(f"AI error: {e}")
+                except Exception as e:
+                    if "rate limit" in str(e).lower() or "quota" in str(e).lower():
+                        st.error("You’ve run out of tokens! Please try again later.")
+                    else:
+                        st.error(f"AI error: {e}")
         else:
             st.warning("Type a question first")
 
