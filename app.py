@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 # --------------------
 # CONFIG
 # --------------------
-st.set_page_config(page_title="MentraIQ V7", layout="wide")
+st.set_page_config(page_title="MentraIQ V8", layout="wide")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --------------------
@@ -60,7 +60,7 @@ button {{
     position: fixed;
     top: 14px;
     right: 20px;
-    font-size: 20px;
+    font-size: 22px;
     cursor: pointer;
 }}
 .flash {{
@@ -83,17 +83,14 @@ button {{
 # --------------------
 # NAVIGATION FUNCTIONS
 # --------------------
-def go_admin():
-    st.session_state.page = "Admin"
-
 def go_tutor():
     st.session_state.page = "Tutor"
-
 def go_study():
     st.session_state.page = "Study"
-
 def go_account():
     st.session_state.page = "Account"
+def go_admin():
+    st.session_state.page = "Admin"
 
 # --------------------
 # NAV BAR
@@ -106,11 +103,8 @@ with c2:
 with c3:
     st.button("Account", key="nav_account", on_click=go_account)
 
-st.markdown(
-    "<div class='admin' onclick=\"document.getElementById('admin').click()\">⚙️</div>",
-    unsafe_allow_html=True
-)
-st.button("admin", key="admin", on_click=go_admin)
+# Admin button in corner
+st.button("⚙️ Admin", key="admin", on_click=go_admin)
 
 # --------------------
 # TUTOR PAGE
@@ -146,7 +140,6 @@ if st.session_state.page == "Tutor":
                     st.info("Sign in to save to Study Mode.")
             except:
                 st.error("Tutor is busy. Try again later.")
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------
@@ -180,9 +173,7 @@ if st.session_state.page == "Study":
                 if st.button("Next ➡️"):
                     st.session_state.card_idx = (idx + 1) % len(cards)
 
-            # --------------------
-            # STREAK / PROGRESS
-            # --------------------
+            # STREAK / PROGRESS TRACKING
             user = st.session_state.user
             st.session_state.users[user].setdefault("streak", 0)
             st.session_state.users[user].setdefault("last_login", "")
@@ -210,7 +201,6 @@ if st.session_state.page == "Account":
     if not st.session_state.user:
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-
         if st.button("Sign In / Sign Up"):
             if username not in st.session_state.users:
                 st.session_state.users[username] = {"password": password, "cards": []}
