@@ -10,29 +10,51 @@ st.set_page_config(page_title="MentraIQ", layout="wide")
 
 st.markdown("""
 <style>
+/* Hide Streamlit UI */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
+/* App background */
 body {
     background-color: #0f1117;
     color: white;
 }
 
-.stButton>button {
+/* Main buttons */
+.stButton > button {
     background-color: #1f2937;
     color: white;
-    border-radius: 8px;
-    padding: 0.5em 1em;
+    border-radius: 12px;
+    padding: 0.7em 1.5em;
+    font-size: 16px;
+    border: none;
 }
 
-.flashcard {
-    background-color: #1f2937;
-    padding: 60px;
-    border-radius: 16px;
-    text-align: center;
-    font-size: 24px;
-    cursor: pointer;
+/* Tutor card */
+.tutor-card {
+    background-color: #111827;
+    padding: 40px;
+    border-radius: 20px;
+    max-width: 700px;
+    margin: 60px auto;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+/* Tutor input */
+textarea {
+    border-radius: 14px !important;
+    background-color: #1f2937 !important;
+    color: white !important;
+    font-size: 18px !important;
+}
+
+/* Admin icon */
+.admin-btn button {
+    background: transparent !important;
+    font-size: 22px !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -75,21 +97,66 @@ def nav_button(name):
 # ======================
 # TOP NAV
 # ======================
-col1, col2, col3, col4 = st.columns([6,1,1,1])
+nav_left, nav_spacer, nav_right = st.columns([6, 3, 1])
 
-with col1:
-    nav_button("Tutor")
-    nav_button("Study Mode")
-    nav_button("Account")
+with nav_left:
+    st.markdown("### MentraIQ")
+    colA, colB, colC = st.columns(3)
+    with colA:
+        if st.button("Tutor"):
+            st.session_state.page = "Tutor"
+    with colB:
+        if st.button("Study Mode"):
+            st.session_state.page = "Study Mode"
+    with colC:
+        if st.button("Account"):
+            st.session_state.page = "Account"
 
-with col4:
-    if st.button("⚙️"):
+with nav_right:
+    st.markdown("<div class='admin-btn'>", unsafe_allow_html=True)
+    if st.button("🛠️"):
         st.session_state.page = "Admin"
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 # ======================
 # TUTOR
 # ======================
 if st.session_state.page == "Tutor":
+    st.markdown("<div class='tutor-card'>", unsafe_allow_html=True)
+
+    st.markdown("## AI Tutor")
+    st.markdown("Ask a question and get a clear explanation.")
+
+    question = st.text_area(
+        "",
+        placeholder="Type your question here...",
+        height=140
+    )
+
+    if st.button("Get Answer"):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": question}]
+            )
+            answer = response.choices[0].message.content
+            st.markdown("### Answer")
+            st.write(answer)
+
+            if st.session_state.user:
+                if st.button("Save to Study Mode"):
+                    st.session_state.users[st.session_state.user]["cards"].append({
+                        "front": question,
+                        "back": answer,
+                        "category": "General"
+                    })
+
+        except Exception:
+            st.error("Tutor is busy. Try again later.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
     st.subheader("AI Tutor")
 
     question = st.text_area("Ask anything")
@@ -198,4 +265,5 @@ if st.session_state.page == "Admin":
         if st.button("Exit Admin"):
             st.session_state.admin = False
             st.session_state.page = "Tutor"
+
 
