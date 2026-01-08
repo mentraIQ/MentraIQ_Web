@@ -3,7 +3,7 @@ import json
 import datetime
 
 # --------------------------
-# Initialize Session State
+# Session State Initialization
 # --------------------------
 if "page" not in st.session_state:
     st.session_state.page = "Home"
@@ -17,6 +17,8 @@ if "last_study_date" not in st.session_state:
     st.session_state.last_study_date = None
 if "admin_mode" not in st.session_state:
     st.session_state.admin_mode = False
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = True
 
 # --------------------------
 # Load Content
@@ -36,17 +38,19 @@ except:
 # --------------------------
 # Helper Functions
 # --------------------------
+def toggle_dark_mode():
+    st.session_state.dark_mode = not st.session_state.dark_mode
+
 def go_admin():
-    password = st.text_input("Enter admin password:", type="password")
+    password = st.text_input("Enter admin password:", type="password", key="admin_pass")
     if password == "mentraqueen":
         st.session_state.admin_mode = True
         st.success("Admin mode enabled!")
-    else:
+    elif password:
         st.error("Incorrect password 💙")
 
 def flip_card(card_front, card_back):
-    # Placeholder flip animation (can replace with JS later)
-    show_back = st.checkbox("Flip Card")
+    show_back = st.checkbox("Flip Card", key=card_front)
     return card_back if show_back else card_front
 
 def update_streak():
@@ -59,24 +63,21 @@ def update_streak():
         st.session_state.last_study_date = today
 
 # --------------------------
-# Navigation / Pages
+# Page Displays
 # --------------------------
 def show_home():
     st.markdown(f"# {content['title']}")
     st.markdown(f"### {content['subtitle']}")
 
-    col1, col2, col3 = st.columns([3,3,1])
+    col1, col2 = st.columns(2)
     with col1:
         if st.button("Tutor"):
             st.session_state.page = "Tutor"
     with col2:
         if st.button("Study Mode"):
             st.session_state.page = "StudyMode"
-    with col3:
-        if st.button("GitHub"):
-            st.write("GitHub link here")
-        if st.button("⚙️"):
-            go_admin()
+    if st.button("Account"):
+        st.session_state.page = "Account"
 
 def show_tutor():
     st.markdown("## Tutor")
@@ -89,18 +90,32 @@ def show_study_mode():
     if not st.session_state.user:
         st.info(content["study_mode_text"])
         return
+
     # Example flashcards
     cards = [
-        {"front":"What is 2+2?", "back":"4", "category":"Math"},
-        {"front":"Capital of France?", "back":"Paris", "category":"Geography"},
+        {"front": "What is 2+2?", "back": "4", "category": "Math"},
+        {"front": "Capital of France?", "back": "Paris", "category": "Geography"},
     ]
+
     update_streak()
     st.markdown(f"**Current Streak:** {st.session_state.streak} days")
+
     for card in cards:
         st.markdown(f"### Category: {card['category']}")
         answer = flip_card(card["front"], card["back"])
         st.write(answer)
         st.write("---")
+
+    if st.button("Back"):
+        st.session_state.page = "Home"
+
+def show_account():
+    st.markdown("## Account")
+    st.text_input("Username", key="username_input")
+    st.text_input("Password", type="password", key="password_input")
+    if st.button("Sign In"):
+        st.session_state.user = st.session_state.username_input
+        st.success(f"Signed in as {st.session_state.user}")
     if st.button("Back"):
         st.session_state.page = "Home"
 
@@ -112,11 +127,11 @@ def show_admin():
         if st.button("Save Changes"):
             content["title"] = new_title
             content["subtitle"] = new_subtitle
-            with open("content.json","w") as f:
+            with open("content.json", "w") as f:
                 json.dump(content, f)
             st.success("Changes saved!")
     else:
-        st.error("Admin access required 💙")
+        go_admin()
     if st.button("Back"):
         st.session_state.page = "Home"
 
@@ -129,25 +144,50 @@ elif st.session_state.page == "Tutor":
     show_tutor()
 elif st.session_state.page == "StudyMode":
     show_study_mode()
+elif st.session_state.page == "Account":
+    show_account()
 elif st.session_state.page == "Admin":
     show_admin()
 
 # --------------------------
-# Dark Mode Styling
+# Dark / Light Mode Styling
 # --------------------------
-st.markdown(
-"""
+if st.session_state.dark_mode:
+    background = "#121212"
+    text_color = "#FFFFFF"
+    button_bg = "#FFFFFF"
+    button_text = "#000000"
+else:
+    background = "#FFFFFF"
+    text_color = "#000000"
+    button_bg = "#121212"
+    button_text = "#FFFFFF"
+
+st.markdown(f"""
 <style>
-body {
-    background-color: #121212;
-    color: #FFFFFF;
-}
-button, .stButton>button {
-    background-color: #FFFFFF;
-    color: #000000;
-}
+body {{
+    background-color: {background};
+    color: {text_color};
+}}
+button, .stButton>button {{
+    background-color: {button_bg};
+    color: {button_text};
+}}
+#admin_button {{
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-weight: bold;
+    font-size: 20px;
+}}
 </style>
-""", unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
+
+# --------------------------
+# Admin & Settings Buttons
+# --------------------------
+st.markdown('<button id="admin_button" onclick="window.location.href=\'#\'">A</button>', unsafe_allow_html=True)
+if st.button("⚙️ Settings"):
+    toggle_dark_mode()
 
 
