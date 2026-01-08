@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 # --------------------
 # CONFIG
 # --------------------
-st.set_page_config(page_title="MentraIQ V9", layout="wide")
+st.set_page_config(page_title="MentraIQ V10", layout="wide")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --------------------
@@ -56,11 +56,11 @@ button {{
     color: {st.session_state.text} !important;
     font-weight: 600;
 }}
-.admin {{
+.admin-btn {{
     position: fixed;
-    top: 14px;
-    right: 20px;
-    font-size: 22px;
+    top: 20px;
+    right: 120px; /* near GitHub link */
+    font-size: 16px;
     cursor: pointer;
 }}
 .flash {{
@@ -103,8 +103,8 @@ with c2:
 with c3:
     st.button("Account", key="nav_account", on_click=go_account)
 
-# Admin button in corner (unique key)
-st.button("⚙️ Admin", key="admin_btn", on_click=go_admin)
+# Admin button small and subtle
+st.button("Admin", key="admin_btn", on_click=go_admin, help="Admin mode")
 
 # --------------------
 # TUTOR PAGE
@@ -136,7 +136,7 @@ if st.session_state.page == "Tutor":
                             "front": question,
                             "back": answer
                         })
-                        st.success("Saved!")
+                        st.success("Saved to Study Mode!")
                 else:
                     st.info("Sign in to save to Study Mode.")
             except:
@@ -151,9 +151,20 @@ if st.session_state.page == "Study":
         st.warning("Sign in for Study Mode.")
     else:
         cards = st.session_state.users[st.session_state.user].get("cards", [])
-        if not cards:
-            st.info("No cards yet.")
-        else:
+        st.markdown("### Create a new study card")
+        with st.form("new_card"):
+            front = st.text_input("Front (Question)")
+            back = st.text_input("Back (Answer)")
+            submitted = st.form_submit_button("Add Card")
+            if submitted:
+                if front and back:
+                    cards.append({"front": front, "back": back})
+                    st.session_state.users[st.session_state.user]["cards"] = cards
+                    st.success("Card added!")
+                else:
+                    st.error("Both front and back are required.")
+
+        if cards:
             idx = st.session_state.card_idx
             card = cards[idx]
             flipped = st.checkbox("Flip card")
@@ -193,7 +204,7 @@ if st.session_state.page == "Study":
                 st.session_state.users[user]["last_login"] = str(today)
 
             st.markdown(f"**🔥 Current streak:** {st.session_state.users[user]['streak']} day(s)")
-            st.markdown(f"**📚 Cards saved:** {len(st.session_state.users[user]['cards'])}")
+            st.markdown(f"**📚 Cards saved:** {len(cards)}")
 
 # --------------------
 # ACCOUNT PAGE
@@ -241,3 +252,4 @@ if st.session_state.page == "Admin":
         if st.button("Exit Admin"):
             st.session_state.admin = False
             st.session_state.page = "Tutor"
+
