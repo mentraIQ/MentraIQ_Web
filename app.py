@@ -6,8 +6,11 @@ import datetime
 # ======================
 # CONFIG
 # ======================
-st.set_page_config(page_title="MentraIQ V10", layout="wide")
+st.set_page_config(page_title="MentraIQ V11", layout="wide")
 
+# ======================
+# STYLING
+# ======================
 st.markdown("""
 <style>
 /* Hide Streamlit UI */
@@ -18,7 +21,7 @@ header {visibility: hidden;}
 /* Background & text */
 body { background-color: #0f1117; color: white; }
 
-/* Main buttons */
+/* Buttons */
 .stButton > button {
     background-color: #1f2937;
     color: white;
@@ -72,7 +75,7 @@ textarea {
 # ======================
 # VERSION
 # ======================
-st.markdown("## MentraIQ V10")
+st.markdown("## MentraIQ V11")
 
 # ======================
 # OPENAI CLIENT
@@ -84,20 +87,22 @@ client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", ""))
 # ======================
 if "page" not in st.session_state:
     st.session_state.page = "Tutor"
-
 if "users" not in st.session_state:
     st.session_state.users = {}
-
 if "user" not in st.session_state:
     st.session_state.user = None
-
 if "admin" not in st.session_state:
     st.session_state.admin = False
-
 if "card_idx" not in st.session_state:
     st.session_state.card_idx = 0
 if "flipped" not in st.session_state:
     st.session_state.flipped = False
+if "bg_color" not in st.session_state:
+    st.session_state.bg_color = "#0f1117"
+if "button_color" not in st.session_state:
+    st.session_state.button_color = "#1f2937"
+if "tutor_title" not in st.session_state:
+    st.session_state.tutor_title = "AI Tutor"
 
 # ======================
 # HELPERS
@@ -111,7 +116,6 @@ def hash_pw(pw):
 nav_left, nav_spacer, nav_right = st.columns([6, 3, 1])
 
 with nav_left:
-    st.markdown("### MentraIQ")
     colA, colB, colC = st.columns(3)
     with colA:
         if st.button("Tutor"):
@@ -133,8 +137,8 @@ with nav_right:
 # TUTOR PAGE
 # ======================
 if st.session_state.page == "Tutor":
-    st.markdown("<div class='tutor-card'>", unsafe_allow_html=True)
-    st.markdown("## AI Tutor")
+    st.markdown(f"<div class='tutor-card'>", unsafe_allow_html=True)
+    st.markdown(f"## {st.session_state.tutor_title}")
     st.markdown("Ask a question and get a clear explanation.")
 
     question = st.text_area(
@@ -237,7 +241,15 @@ if st.session_state.page == "Admin":
                 st.error("Nope.")
     else:
         st.subheader("Admin Panel")
-        st.info("Theme + text controls coming here")
+        st.info("Change theme, card title, and buttons in real time")
+
+        # Theme controls
+        st.session_state.bg_color = st.color_picker("Background color", st.session_state.bg_color)
+        st.session_state.button_color = st.color_picker("Button color", st.session_state.button_color)
+
+        # Tutor title
+        st.session_state.tutor_title = st.text_input("Tutor card title", st.session_state.tutor_title)
+
         if st.button("Exit Admin"):
             st.session_state.admin = False
             st.session_state.page = "Tutor"
