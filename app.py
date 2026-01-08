@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date
-from openai import OpenAI, error  # Fixed import for exceptions
+from openai import OpenAI
+import openai.error as openai_error  # Correct exception import
 
 # ---------------- APP TITLE ----------------
 st.markdown(
@@ -27,6 +28,8 @@ if "page" not in st.session_state:
     st.session_state.page = "Tutor"
 if "flip" not in st.session_state:
     st.session_state.flip = {}
+if "admin_mode" not in st.session_state:
+    st.session_state.admin_mode = False
 
 # ---------------- CSS ----------------
 st.markdown("""
@@ -79,6 +82,10 @@ button {
 # ---------------- NAVIGATION ----------------
 st.sidebar.title("MentraIQ")
 pages = ["Tutor", "Flashcards", "Account"]
+# Add the 3-dot menu for admin mode
+if st.sidebar.button("⋮ Admin Mode"):
+    st.session_state.admin_mode = not st.session_state.admin_mode
+
 st.session_state.page = st.sidebar.radio("Navigate", pages)
 
 # ---------------- USER AUTH ----------------
@@ -114,7 +121,6 @@ if st.session_state.page == "Tutor":
                     ans = response.choices[0].message.content
                     st.markdown(f'<div class="flashcard">{ans}</div>', unsafe_allow_html=True)
 
-                    # Save to flashcards if logged in
                     if st.session_state.user:
                         category = st.text_input("Category (optional)", value="General")
                         if st.button("Save as Flashcard"):
@@ -125,9 +131,9 @@ if st.session_state.page == "Tutor":
                             })
                             st.success("Saved to flashcards!")
 
-                except error.RateLimitError:
+                except openai_error.RateLimitError:
                     st.error("You’ve run out of tokens! Please try again later.")
-                except error.OpenAIError as e:
+                except openai_error.OpenAIError as e:
                     st.error(f"AI error: {e}")
         else:
             st.warning("Type a question first")
@@ -192,5 +198,12 @@ elif st.session_state.page == "Account":
         if st.button("Log out"):
             st.session_state.user = None
 
+# ---------------- ADMIN MODE ----------------
+if st.session_state.admin_mode:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Admin Panel")
+    st.sidebar.write("👀 View all users and flashcards:")
+    for u, info in st.session_state.users.items():
+        st.sidebar.write(f"**{u}** - {len(info['flashcards'])} flashcards, streak: {info['streak']} days")
 
 
