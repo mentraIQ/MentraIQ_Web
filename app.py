@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 # --------------------
 # CONFIG
 # --------------------
-st.set_page_config(page_title="MentraIQ V8", layout="wide")
+st.set_page_config(page_title="MentraIQ V9", layout="wide")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # --------------------
@@ -103,8 +103,8 @@ with c2:
 with c3:
     st.button("Account", key="nav_account", on_click=go_account)
 
-# Admin button in corner
-st.button("⚙️ Admin", key="admin", on_click=go_admin)
+# Admin button in corner (unique key)
+st.button("⚙️ Admin", key="admin_btn", on_click=go_admin)
 
 # --------------------
 # TUTOR PAGE
@@ -131,6 +131,7 @@ if st.session_state.page == "Tutor":
 
                 if st.session_state.user:
                     if st.button(st.session_state.btn_save):
+                        st.session_state.users[st.session_state.user].setdefault("cards", [])
                         st.session_state.users[st.session_state.user]["cards"].append({
                             "front": question,
                             "back": answer
@@ -149,7 +150,7 @@ if st.session_state.page == "Study":
     if not st.session_state.user:
         st.warning("Sign in for Study Mode.")
     else:
-        cards = st.session_state.users[st.session_state.user]["cards"]
+        cards = st.session_state.users[st.session_state.user].get("cards", [])
         if not cards:
             st.info("No cards yet.")
         else:
@@ -240,4 +241,3 @@ if st.session_state.page == "Admin":
         if st.button("Exit Admin"):
             st.session_state.admin = False
             st.session_state.page = "Tutor"
-
