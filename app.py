@@ -1,120 +1,153 @@
 import streamlit as st
 import json
-from pathlib import Path
+import datetime
 
-st.set_page_config(page_title="mentraIQ", layout="centered")
-
-CONTENT_FILE = Path("content.json")
-ADMIN_PASSWORD = "mentraqueen"
-
-# ---------- Helpers ----------
-def load_content():
-    if CONTENT_FILE.exists():
-        return json.loads(CONTENT_FILE.read_text())
-    return {}
-
-def save_content(data):
-    CONTENT_FILE.write_text(json.dumps(data, indent=2))
-
-content = load_content()
-
-# ---------- Session Defaults ----------
+# --------------------------
+# Initialize Session State
+# --------------------------
 if "page" not in st.session_state:
-    st.session_state.page = "Tutor"
+    st.session_state.page = "Home"
+if "user" not in st.session_state:
+    st.session_state.user = ""
+if "study_progress" not in st.session_state:
+    st.session_state.study_progress = {}
+if "streak" not in st.session_state:
+    st.session_state.streak = 0
+if "last_study_date" not in st.session_state:
+    st.session_state.last_study_date = None
+if "admin_mode" not in st.session_state:
+    st.session_state.admin_mode = False
 
-if "admin_auth" not in st.session_state:
-    st.session_state.admin_auth = False
+# --------------------------
+# Load Content
+# --------------------------
+try:
+    with open("content.json", "r") as f:
+        content = json.load(f)
+except:
+    content = {
+        "title": "mentraIQ",
+        "subtitle": "Your personal study space",
+        "study_mode_text": "Sign in for Study Mode",
+        "tutor_placeholder": "AI Tutor coming soon...",
+        "coming_soon": "AI Tutor launching soon"
+    }
 
-# ---------- Header ----------
-st.markdown(f"## {content.get('title', 'mentraIQ')}")
-st.markdown(content.get("subtitle", ""))
-
-# ---------- Top Right Buttons ----------
-top_right = st.columns([6, 1, 1])
-
-with top_right[1]:
-    st.link_button("GitHub", "https://github.com", use_container_width=True)
-
-with top_right[2]:
-    if st.button("Admin"):
-        st.session_state.page = "Admin"
-
-st.divider()
-
-# ---------- Pages ----------
-if st.session_state.page == "Tutor":
-    st.subheader("Tutor")
-
-    st.text_input(
-        "Study prompt",
-        placeholder=content.get("tutor_placeholder", "")
-    )
-
-    st.info(content.get("coming_soon", "Coming soon"))
-
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Study Mode"):
-            st.session_state.page = "Study"
-    with col2:
-        if st.button("Account"):
-            st.session_state.page = "Account"
-
-
-elif st.session_state.page == "Study":
-    st.subheader("Study Mode")
-    st.write(content.get("study_mode_text", ""))
-
-    if st.button("⬅ Back"):
-        st.session_state.page = "Tutor"
-
-
-elif st.session_state.page == "Account":
-    st.subheader("Account")
-    st.write("Accounts coming soon")
-
-    if st.button("⬅ Back"):
-        st.session_state.page = "Tutor"
-
-
-elif st.session_state.page == "Admin":
-    st.subheader("Admin Panel")
-
-    if not st.session_state.admin_auth:
-        password = st.text_input("Admin Password", type="password")
-        if st.button("Login"):
-            if password == ADMIN_PASSWORD:
-                st.session_state.admin_auth = True
-                st.success("Access granted")
-                st.rerun()
-            else:
-                st.error("Wrong password")
-
-        if st.button("⬅ Back"):
-            st.session_state.page = "Tutor"
-
+# --------------------------
+# Helper Functions
+# --------------------------
+def go_admin():
+    password = st.text_input("Enter admin password:", type="password")
+    if password == "mentraqueen":
+        st.session_state.admin_mode = True
+        st.success("Admin mode enabled!")
     else:
-        st.markdown("### Edit Site Content")
+        st.error("Incorrect password 💙")
 
-        new_title = st.text_input("Title", content.get("title", ""))
-        new_subtitle = st.text_input("Subtitle", content.get("subtitle", ""))
-        new_study = st.text_input("Study Mode Text", content.get("study_mode_text", ""))
-        new_tutor = st.text_input("Tutor Placeholder", content.get("tutor_placeholder", ""))
-        new_soon = st.text_input("Coming Soon Text", content.get("coming_soon", ""))
+def flip_card(card_front, card_back):
+    # Placeholder flip animation (can replace with JS later)
+    show_back = st.checkbox("Flip Card")
+    return card_back if show_back else card_front
 
-        if st.button("💾 Save Changes"):
-            save_content({
-                "title": new_title,
-                "subtitle": new_subtitle,
-                "study_mode_text": new_study,
-                "tutor_placeholder": new_tutor,
-                "coming_soon": new_soon
-            })
-            st.success("Saved!")
-            st.rerun()
+def update_streak():
+    today = datetime.date.today()
+    if st.session_state.last_study_date != today:
+        if st.session_state.last_study_date == today - datetime.timedelta(days=1):
+            st.session_state.streak += 1
+        else:
+            st.session_state.streak = 1
+        st.session_state.last_study_date = today
 
-        if st.button("Logout"):
-            st.session_state.admin_auth = False
+# --------------------------
+# Navigation / Pages
+# --------------------------
+def show_home():
+    st.markdown(f"# {content['title']}")
+    st.markdown(f"### {content['subtitle']}")
+
+    col1, col2, col3 = st.columns([3,3,1])
+    with col1:
+        if st.button("Tutor"):
             st.session_state.page = "Tutor"
-            st.rerun()
+    with col2:
+        if st.button("Study Mode"):
+            st.session_state.page = "StudyMode"
+    with col3:
+        if st.button("GitHub"):
+            st.write("GitHub link here")
+        if st.button("⚙️"):
+            go_admin()
+
+def show_tutor():
+    st.markdown("## Tutor")
+    st.text_input("Ask a question:", placeholder=content["tutor_placeholder"])
+    if st.button("Back"):
+        st.session_state.page = "Home"
+
+def show_study_mode():
+    st.markdown("## Study Mode")
+    if not st.session_state.user:
+        st.info(content["study_mode_text"])
+        return
+    # Example flashcards
+    cards = [
+        {"front":"What is 2+2?", "back":"4", "category":"Math"},
+        {"front":"Capital of France?", "back":"Paris", "category":"Geography"},
+    ]
+    update_streak()
+    st.markdown(f"**Current Streak:** {st.session_state.streak} days")
+    for card in cards:
+        st.markdown(f"### Category: {card['category']}")
+        answer = flip_card(card["front"], card["back"])
+        st.write(answer)
+        st.write("---")
+    if st.button("Back"):
+        st.session_state.page = "Home"
+
+def show_admin():
+    if st.session_state.admin_mode:
+        st.markdown("## Admin Panel")
+        new_title = st.text_input("App Title:", content["title"])
+        new_subtitle = st.text_input("App Subtitle:", content["subtitle"])
+        if st.button("Save Changes"):
+            content["title"] = new_title
+            content["subtitle"] = new_subtitle
+            with open("content.json","w") as f:
+                json.dump(content, f)
+            st.success("Changes saved!")
+    else:
+        st.error("Admin access required 💙")
+    if st.button("Back"):
+        st.session_state.page = "Home"
+
+# --------------------------
+# Page Routing
+# --------------------------
+if st.session_state.page == "Home":
+    show_home()
+elif st.session_state.page == "Tutor":
+    show_tutor()
+elif st.session_state.page == "StudyMode":
+    show_study_mode()
+elif st.session_state.page == "Admin":
+    show_admin()
+
+# --------------------------
+# Dark Mode Styling
+# --------------------------
+st.markdown(
+"""
+<style>
+body {
+    background-color: #121212;
+    color: #FFFFFF;
+}
+button, .stButton>button {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+</style>
+""", unsafe_allow_html=True
+)
+
 
