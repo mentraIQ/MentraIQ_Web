@@ -1,18 +1,9 @@
 import streamlit as st
 from datetime import date
-from openai import OpenAI  # Latest SDK, no error module
+from openai import OpenAI
 
-# ---------------- APP TITLE ----------------
-st.markdown(
-    """
-    <h1 style='text-align:center; color:#60a5fa; font-size:48px; margin-bottom:20px;'>
-        MentraIQ V6 🧠
-    </h1>
-    """,
-    unsafe_allow_html=True
-)
-
-st.set_page_config(page_title="MentraIQ V6", layout="wide", page_icon="🧠")
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="MentraIQ V7", layout="wide", page_icon="🧠")
 
 # ---------------- OPENAI CLIENT ----------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -23,34 +14,41 @@ if "users" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = None
 if "page" not in st.session_state:
-    st.session_state.page = "Tutor"
-if "flip" not in st.session_state:
-    st.session_state.flip = {}
+    st.session_state.page = "Home"
 if "admin_mode" not in st.session_state:
     st.session_state.admin_mode = False
+if "theme" not in st.session_state:
+    st.session_state.theme = {
+        "background": "#0b1220",
+        "text": "#e5e7eb",
+        "button": "#1e293b",
+        "flashcard_bg": "#111827",
+        "flashcard_text": "#e5e7eb"
+    }
 
 # ---------------- CSS ----------------
-st.markdown("""
+st.markdown(f"""
 <style>
-html, body, [class*="css"] {
-    background-color: #0b1220;
-    color: #e5e7eb;
+html, body, [class*="css"] {{
+    background-color: {st.session_state.theme['background']};
+    color: {st.session_state.theme['text']};
     font-family: 'Inter', sans-serif;
-}
-input, textarea {
-    background-color: #111827 !important;
+}}
+input, textarea {{
+    background-color: {st.session_state.theme['flashcard_bg']} !important;
     color: white !important;
     border-radius: 10px !important;
-}
-button {
-    background-color: #1e293b !important;
+}}
+button {{
+    background-color: {st.session_state.theme['button']} !important;
     color: white !important;
     border-radius: 10px !important;
     padding: 10px 18px !important;
     font-weight: 600;
-}
-.flashcard {
-    background-color: #111827;
+}}
+.flashcard {{
+    background-color: {st.session_state.theme['flashcard_bg']};
+    color: {st.session_state.theme['flashcard_text']};
     border-radius: 20px;
     padding: 40px;
     min-height: 220px;
@@ -60,37 +58,65 @@ button {
     font-size: 22px;
     text-align: center;
     box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-}
+    cursor: pointer;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+}}
+.flashcard.flipped {{
+    transform: rotateY(180deg);
+}}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- NAVIGATION ----------------
-st.sidebar.title("MentraIQ")
-pages = ["Tutor", "Flashcards", "Account"]
-# 3-dot menu for admin mode
-if st.sidebar.button("⋮ Admin Mode"):
-    st.session_state.admin_mode = not st.session_state.admin_mode
-
-st.session_state.page = st.sidebar.radio("Navigate", pages)
-
 # ---------------- USER AUTH ----------------
-def login(username):
-    if username not in st.session_state.users:
+def create_account(username, password):
+    if username in st.session_state.users:
+        st.warning("Username already exists!")
+    else:
         st.session_state.users[username] = {
+            "password": password,
             "streak": 1,
             "last_login": str(date.today()),
             "flashcards": []
         }
-    st.session_state.user = username
+        st.success("Account created! You can log in now.")
+
+def login(username, password):
+    if username in st.session_state.users:
+        if st.session_state.users[username]["password"] == password:
+            st.session_state.user = username
+            st.success("Logged in!")
+        else:
+            st.error("Incorrect password!")
+    else:
+        st.error("Username not found!")
+
+# ---------------- NAVIGATION ----------------
+if st.session_state.page == "Home":
+    st.markdown("<h1 style='text-align:center; color:#60a5fa;'>MentraIQ V7 🧠</h1>", unsafe_allow_html=True)
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if st.button("Tutor"):
+            st.session_state.page = "Tutor"
+    with col2:
+        if st.button("Flashcards"):
+            st.session_state.page = "Flashcards"
+    with col3:
+        if st.button("Account"):
+            st.session_state.page = "Account"
+    with col4:
+        if st.button("Admin"):
+            pwd = st.text_input("Admin Password", type="password")
+            if pwd == "mentraqueen":  # admin password
+                st.session_state.admin_mode = True
+                st.session_state.page = "Admin"
+            elif pwd:
+                st.error("Incorrect admin password!")
 
 # ---------------- TUTOR ----------------
-if st.session_state.page == "Tutor":
+elif st.session_state.page == "Tutor":
     st.title("AI Tutor ✨")
-    question = st.text_area(
-        "Ask anything",
-        placeholder="Explain photosynthesis, solve x² + 4x = 0, summarize Hamlet..."
-    )
-
+    question = st.text_area("Ask anything", placeholder="Explain photosynthesis, solve x² + 4x = 0...")
     if st.button("Get Answer"):
         if question.strip():
             with st.spinner("Thinking... 🤖"):
@@ -104,21 +130,20 @@ if st.session_state.page == "Tutor":
                         max_tokens=500
                     )
                     ans = response.choices[0].message.content
-                    st.markdown(f'<div class="flashcard">{ans}</div>', unsafe_allow_html=True)
-
+                    st.markdown(f'<div class="flashcard" id="tutor_card">{ans}</div>', unsafe_allow_html=True)
+                    # Save flashcard
                     if st.session_state.user:
-                        category = st.text_input("Category (optional)", value="General")
-                        if st.button("Save as Flashcard"):
+                        cat = st.text_input("Category (optional)", value="General")
+                        if st.button("Save Flashcard"):
                             st.session_state.users[st.session_state.user]["flashcards"].append({
                                 "front": question,
                                 "back": ans,
-                                "category": category or "General"
+                                "category": cat or "General"
                             })
-                            st.success("Saved to flashcards!")
-
+                            st.success("Saved!")
                 except Exception as e:
                     if "rate limit" in str(e).lower() or "quota" in str(e).lower():
-                        st.error("You’ve run out of tokens! Please try again later.")
+                        st.error("Out of tokens, try later.")
                     else:
                         st.error(f"AI error: {e}")
         else:
@@ -142,27 +167,27 @@ elif st.session_state.page == "Flashcards":
         category = st.text_input("Category", placeholder="English Final")
         if st.button("Add Flashcard"):
             if front and back:
-                cards.append({
-                    "front": front,
-                    "back": back,
-                    "category": category or "General"
-                })
+                cards.append({"front": front, "back": back, "category": category or "General"})
                 st.success("Flashcard added ✨")
             else:
                 st.warning("Both sides required")
 
-        st.divider()
         st.subheader("Study")
         if cards:
-            idx = st.number_input(
-                "Card number",
-                min_value=1,
-                max_value=len(cards),
-                value=1
-            ) - 1
-            show_back = st.toggle("Flip card")
-            content = cards[idx]["back"] if show_back else cards[idx]["front"]
-            st.markdown(f'<div class="flashcard">{content}</div>', unsafe_allow_html=True)
+            for idx, card in enumerate(cards):
+                st.markdown(f'<div class="flashcard" id="card_{idx}">{card["front"]}</div>', unsafe_allow_html=True)
+                st.markdown(f"""
+                <script>
+                const card{idx} = document.getElementById("card_{idx}");
+                card{idx}.addEventListener("click", () => {{
+                    if(card{idx}.innerHTML === `{card["front"]}`) {{
+                        card{idx}.innerHTML = `{card["back"]}`;
+                    }} else {{
+                        card{idx}.innerHTML = `{card["front"]}`;
+                    }}
+                }});
+                </script>
+                """, unsafe_allow_html=True)
         else:
             st.info("No flashcards yet")
 
@@ -170,11 +195,18 @@ elif st.session_state.page == "Flashcards":
 elif st.session_state.page == "Account":
     st.title("Account 👤")
     if not st.session_state.user:
-        username = st.text_input("Username")
-        if st.button("Sign in"):
-            if username.strip():
-                login(username)
-                st.success("Signed in ✨")
+        st.subheader("Sign Up")
+        u1 = st.text_input("Username")
+        p1 = st.text_input("Password", type="password")
+        if st.button("Create Account"):
+            if u1 and p1:
+                create_account(u1, p1)
+        st.subheader("Login")
+        u2 = st.text_input("Username Login")
+        p2 = st.text_input("Password Login", type="password")
+        if st.button("Login"):
+            if u2 and p2:
+                login(u2, p2)
     else:
         user = st.session_state.user
         data = st.session_state.users[user]
@@ -184,12 +216,14 @@ elif st.session_state.page == "Account":
         if st.button("Log out"):
             st.session_state.user = None
 
-# ---------------- ADMIN MODE ----------------
-if st.session_state.admin_mode:
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Admin Panel")
-    st.sidebar.write("👀 View all users and flashcards:")
-    for u, info in st.session_state.users.items():
-        st.sidebar.write(f"**{u}** - {len(info['flashcards'])} flashcards, streak: {info['streak']} days")
-
+# ---------------- ADMIN ----------------
+elif st.session_state.page == "Admin":
+    st.title("Admin Panel 🔧")
+    st.subheader("Theme Customization")
+    st.session_state.theme["background"] = st.color_picker("Background", st.session_state.theme["background"])
+    st.session_state.theme["text"] = st.color_picker("Text", st.session_state.theme["text"])
+    st.session_state.theme["button"] = st.color_picker("Buttons", st.session_state.theme["button"])
+    st.session_state.theme["flashcard_bg"] = st.color_picker("Flashcards BG", st.session_state.theme["flashcard_bg"])
+    st.session_state.theme["flashcard_text"] = st.color_picker("Flashcards Text", st.session_state.theme["flashcard_text"])
+    st.info("Changes apply immediately!")
 
