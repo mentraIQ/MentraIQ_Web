@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import date
-from openai import OpenAI
-from openai.error import RateLimitError, OpenAIError
+from openai import OpenAI, error  # Fixed import for exceptions
 
 # ---------------- APP TITLE ----------------
 st.markdown(
@@ -126,9 +125,9 @@ if st.session_state.page == "Tutor":
                             })
                             st.success("Saved to flashcards!")
 
-                except RateLimitError:
+                except error.RateLimitError:
                     st.error("You’ve run out of tokens! Please try again later.")
-                except OpenAIError as e:
+                except error.OpenAIError as e:
                     st.error(f"AI error: {e}")
         else:
             st.warning("Type a question first")
